@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String                @id @default(cuid())
+  email               String                @unique
+  name                String?
+  password            String
+  role                String                @default("USER")
+  status              String                @default("ACTIVE")
+  factoryId           String?
+  fieldType           String                @default("OTHER")
+  factory             Factory?              @relation(fields: [factoryId], references: [id])
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  createdForms        Form[]                @relation("FormCreator")
+  submissions         FormResponse[]        @relation("FormSubmitter")
+  forms               FormAccess[]
+  passwordResetRequests PasswordResetRequest[]
+  userActivities      UserActivity[]
+}
+
+model Factory {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   @default("CONVENTIONAL")
+  location  String?
+  users     User[]
+  forms     Form[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Form {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  type        String
+  fields      String        // Store JSON as TEXT
+  factoryId   String
+  factory     Factory       @relation(fields: [factoryId], references: [id])
+  createdById String
+  createdBy   User         @relation("FormCreator", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  responses   FormResponse[]
+  entries     FormEntry[]
+  access      FormAccess[]
+
+  @@unique([name, factoryId])
+}
+
+model FormEntry {
+  id        String   @id @default(uuid())
+  data      String   // JSON stored as string
+  formId    String
+  form      Form     @relation(fields: [formId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FormAccess {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  formId     String
+  form       Form     @relation(fields: [formId], references: [id])
+  canView    Boolean  @default(true)
+  canEdit    Boolean  @default(false)
+  canDelete  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, formId])
+}
+
+model FormResponse {
+  id            String   @id @default(cuid())
+  formId        String
+  form          Form     @relation(fields: [formId], references: [id])
+  data          String   // Store JSON as TEXT
+  submittedById String
+  submittedBy   User     @relation("FormSubmitter", fields: [submittedById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PasswordResetRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  status      String   @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserActivity {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  action      String   // LOGIN, LOGOUT, PASSWORD_RESET, etc.
+  details     String?
+  performedBy String?  // ID of the user who performed the action (if applicable)
+  createdAt   DateTime @default(now())
+}
